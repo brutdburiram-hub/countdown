@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Realtime Countdown</title>
+  <meta name="description" content="Lightweight realtime countdown that accepts a target datetime via URL query string."/>
+  <style>
+    :root{
+      --bg:#0b0c10;
+      --fg:#e6fff2;
+      --accent:#00ffc3;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; display:flex; align-items:center; justify-content:center;
+      background:var(--bg); color:var(--fg); font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    .wrap{ text-align:center; padding:24px; width:min(680px, 92vw); }
+    h1{ font-size:18px; font-weight:600; letter-spacing:.2px; margin:0 0 12px }
+    .time{ font-size: clamp(40px, 8vw, 72px); font-weight:800; line-height:1.05; letter-spacing:1px; }
+    .label{ margin-top:8px; opacity:.75; font-size:14px }
+    .hint{ margin-top:16px; opacity:.55; font-size:12px }
+    .badge{ display:inline-block; background:rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.15);
+            padding:6px 10px; border-radius:999px; font-size:12px; margin-top:10px}
+    .danger{ color:#ff6b6b }
+    .ok{ color:var(--accent) }
+    a{ color:var(--accent) }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 id="title">Countdown</h1>
+    <div id="out" class="time">--:--:--</div>
+    <div id="state" class="label">Waiting…</div>
+    <div id="note" class="hint"></div>
+    <div id="badge" class="badge"></div>
+  </div>
+<script>
+  // Helper
+  const qs = new URLSearchParams(location.search);
+  const pad = n => (n<10 ? '0' : '') + n;
+  const clamp = (n,min,max)=>Math.min(max,Math.max(min,n));
+
+  // Inputs via query string
+  // ?target=2025-09-30T18:00:00+07:00
+  // ?label=Ticket%20Sales%20Close
+  // ?fg=%23ffffff&bg=%230b0c10&accent=%2300ffc3
+  const targetStr = qs.get('target');     // ISO string recommended
+  const labelStr  = qs.get('label') || 'Countdown';
+  const fg = qs.get('fg'), bg = qs.get('bg'), accent = qs.get('accent');
+
+  // Apply custom colors if provided
+  if (fg) document.documentElement.style.setProperty('--fg', fg);
+  if (bg) document.documentElement.style.setProperty('--bg', bg);
+  if (accent) document.documentElement.style.setProperty('--accent', accent);
+
+  // Title / label
+  document.getElementById('title').textContent = labelStr;
+
+  // Resolve target date
+  let target;
+  if (targetStr) {
+    // Allow numeric timestamps too
+    if (/^\d{10,13}$/.test(targetStr)) {
+      const ms = targetStr.length === 13 ? Number(targetStr) : Number(targetStr)*1000;
+      target = new Date(ms);
+    } else {
+      target = new Date(targetStr);
+    }
+  } else {
+    // Default: 1 hour from now
+    target = new Date(Date.now() + 3600*1000);
+  }
+
+  // Validate
+  const outEl = document.getElementById('out');
+  const stateEl = document.getElementById('state');
+  const noteEl = document.getElementById('note');
+  const badgeEl = document.getElementById('badge');
+
+  if (isNaN(target.getTime())) {
+    outEl.textContent = '--:--:--';
+    stateEl.innerHTML = '<span class="danger">Invalid target date.</span>';
+    noteEl.innerHTML = 'Use <code>?target=2025-09-30T18:00:00+07:00</code> (ISO)';
+  } else {
+    badgeEl.textContent = 'Target: ' + target.toString();
+    const tick = () => {
+      const now = new Date();
+      const diffMs = Math.max(0, target - now);
+      const s = Math.floor(diffMs/1000);
+      const d = Math.floor(s/86400);
+      const h = Math.floor((s%86400)/3600);
+      const m = Math.floor((s%3600)/60);
+      const ss = s%60;
+      outEl.textContent = d>0 ? `${d}d ${pad(h)}:${pad(m)}:${pad(ss)}` : `${pad(h)}:${pad(m)}:${pad(ss)}`;
+      if (diffMs > 0) {
+        stateEl.innerHTML = '<span class="ok">Time remaining</span>';
+      } else {
+        stateEl.innerHTML = '<span class="danger">Time\'s up</span>';
+      }
+    };
+    tick();
+    const iv = setInterval(() => {
+      tick();
+      if (target - new Date() <= 0) clearInterval(iv);
+    }, 1000);
+  }
+</script>
+</body>
+</html>
